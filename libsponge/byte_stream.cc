@@ -25,6 +25,17 @@ size_t ByteStream::write(const string &data) {
     return writed_size;
 }
 
+size_t ByteStream::write(const char data) {
+    // 获取数据大小
+    if (remaining_capacity() <= 0)
+        return 0;
+    // 保存数据并更新信息
+    buffer_ += data;
+    used_++;
+    total_write_++;
+    return 1;
+}
+
 //! \param[in] len bytes will be copied from the output side of the buffer
 string ByteStream::peek_output(const size_t len) const { return buffer_.substr(0, len); }
 
