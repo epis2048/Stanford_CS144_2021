@@ -18,19 +18,39 @@
 class TCPSender {
   private:
     //! our initial sequence number, the number for our SYN.
-    WrappingInt32 _isn;
+    WrappingInt32 isn_;
 
     //! outbound queue of segments that the TCPSender wants sent
-    std::queue<TCPSegment> _segments_out{};
+    std::queue<TCPSegment> segments_out_{};
+    //! 等待返回接收成功的段
+    std::queue<TCPSegment> segments_wait_{};
 
     //! retransmission timer for the connection
-    unsigned int _initial_retransmission_timeout;
+    unsigned int initial_retransmission_timeout_;
+    //! RTO，重传等待时间
+    unsigned int retransmission_timeout_;
+    //! 重传次数
+    uint16_t consecutive_retransmissions_ = 0;
+    //! 重传计时器
+    size_t retransmissions_timer_ = 0;
+    //! 重传计时器是否启动
+    bool retransmissions_timer_running_ = false;
 
     //! outgoing stream of bytes that have not yet been sent
-    ByteStream _stream;
+    ByteStream stream_;
 
     //! the (absolute) sequence number for the next byte to be sent
-    uint64_t _next_seqno{0};
+    uint64_t next_seqno_{0};
+    uint64_t recv_seqno_{0};
+
+    // 标记是否开始和结束
+    bool syn_ = false;
+    bool fin_ = false;
+
+    // 尚在发送中的数据大小
+    uint64_t bytes_in_flight_ = 0;
+    // 接收方的窗口大小
+    uint16_t receiver_window_size_ = 0;
 
   public:
     //! Initialize a TCPSender
@@ -40,8 +60,8 @@ class TCPSender {
 
     //! \name "Input" interface for the writer
     //!@{
-    ByteStream &stream_in() { return _stream; }
-    const ByteStream &stream_in() const { return _stream; }
+    ByteStream &stream_in() { return stream_; }
+    const ByteStream &stream_in() const { return stream_; }
     //!@}
 
     //! \name Methods that can cause the TCPSender to send a segment
@@ -75,17 +95,20 @@ class TCPSender {
     //! \note These must be dequeued and sent by the TCPConnection,
     //! which will need to fill in the fields that are set by the TCPReceiver
     //! (ackno and window size) before sending.
-    std::queue<TCPSegment> &segments_out() { return _segments_out; }
+    std::queue<TCPSegment> &segments_out() { return segments_out_; }
     //!@}
 
     //! \name What is the next sequence number? (used for testing)
     //!@{
 
     //! \brief absolute seqno for the next byte to be sent
-    uint64_t next_seqno_absolute() const { return _next_seqno; }
+    uint64_t next_seqno_absolute() const { return next_seqno_; }
 
     //! \brief relative seqno for the next byte to be sent
-    WrappingInt32 next_seqno() const { return wrap(_next_seqno, _isn); }
+    WrappingInt32 next_seqno() const { return wrap(next_seqno_, isn_); }
+
+    //! \brief 发送一个TCP段
+    void send_tcp_segment(TCPSegment &tcp_segment);
     //!@}
 };
 
